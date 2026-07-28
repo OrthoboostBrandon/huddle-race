@@ -49,6 +49,32 @@
   }
   .order { margin-top: 10px; font-size: 13px; color: #9fb4d8; text-align: center; min-height: 18px; }
   .hint { color: #6f85a8; font-size: 12px; margin-top: 10px; line-height: 1.5; }
+  .stage { position: relative; width: 560px; max-width: 100%; }
+  .banner {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(0.6);
+    text-align: center; pointer-events: none; opacity: 0; transition: opacity .25s ease;
+    background: rgba(9,16,30,0.72); backdrop-filter: blur(2px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 18px;
+    padding: 22px 34px; width: 82%;
+  }
+  .banner.show { opacity: 1; animation: pop .5s cubic-bezier(.2,1.3,.4,1) forwards; }
+  @keyframes pop { to { transform: translate(-50%,-50%) scale(1); } }
+  .banner-kicker { font-size: 15px; letter-spacing: 3px; color: #7fd4c1; font-weight: 700; }
+  .banner-name { font-size: 46px; font-weight: 800; color: #ffe27a; margin: 6px 0 2px;
+    text-shadow: 0 2px 18px rgba(255,226,122,0.5); line-height: 1.05; word-break: break-word; }
+  .banner-sub { font-size: 14px; color: #cfe0ff; }
+  .countdown {
+    position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%);
+    font-size: 130px; font-weight: 900; color: #fff; pointer-events: none;
+    opacity: 0; text-shadow: 0 4px 30px rgba(78,225,193,0.7); letter-spacing: 2px;
+  }
+  .countdown.show { opacity: 1; }
+  .countdown.flash { animation: cd .7s ease-out; }
+  @keyframes cd {
+    0% { transform: translate(-50%,-50%) scale(0.4); opacity: 0; }
+    30% { opacity: 1; }
+    100% { transform: translate(-50%,-50%) scale(1.7); opacity: 0; }
+  }
 </style>
 </head>
 <body>
@@ -66,11 +92,20 @@ Devon
 Lena</textarea>
       <button class="drop" id="dropBtn">Start the race</button>
       <button class="ghost" id="resetBtn">Reset board</button>
+      <button class="ghost" id="soundBtn">🔊 Sound: On</button>
       <div class="hint">Add up to 8 names. Camera follows the lead ball. Being fast is bad here: the very last ball to cross the finish line has to lead.</div>
     </div>
 
     <div>
-      <canvas id="board" width="560" height="640"></canvas>
+      <div class="stage">
+        <canvas id="board" width="560" height="640"></canvas>
+        <div class="banner" id="banner">
+          <div class="banner-kicker">YOU'RE UP</div>
+          <div class="banner-name" id="bannerName"></div>
+          <div class="banner-sub">leads the next huddle</div>
+        </div>
+        <div class="countdown" id="countdown"></div>
+      </div>
       <div class="winner" id="winner"></div>
       <div class="order" id="order"></div>
     </div>
@@ -87,6 +122,62 @@ const dropBtn = document.getElementById('dropBtn');
 const resetBtn = document.getElementById('resetBtn');
 const winnerEl = document.getElementById('winner');
 const orderEl = document.getElementById('order');
+const bannerEl = document.getElementById('banner');
+const bannerNameEl = document.getElementById('bannerName');
+const countdownEl = document.getElementById('countdown');
+const soundBtn = document.getElementById('soundBtn');
+
+// ---------- sound (Web Audio, no files needed) ----------
+let audioCtx = null;
+let soundOn = true;
+let lastPing = 0;
+function audio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone(freq, dur, type, vol, offset) {
+  if (!soundOn) return;
+  const ac = audio(); const t0 = ac.currentTime + (offset || 0);
+  const osc = ac.createOscillator(); const g = ac.createGain();
+  osc.type = type || 'sine'; osc.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(vol, t0 + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(g).connect(ac.destination);
+  osc.start(t0); osc.stop(t0 + dur + 0.02);
+}
+function playPing() {
+  if (!soundOn) return;
+  const now = performance.now();
+  if (now - lastPing < 45) return;   // throttle so many hits don't crackle
+  lastPing = now;
+  tone(420 + Math.random() * 520, 0.08, 'triangle', 0.11);
+}
+function playWhoosh() {
+  if (!soundOn) return;
+  const ac = audio(); const t0 = ac.currentTime;
+  const osc = ac.createOscillator(); const g = ac.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(180, t0);
+  osc.frequency.exponentialRampToValueAtTime(950, t0 + 0.25);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(0.13, t0 + 0.03);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
+  osc.connect(g).connect(ac.destination);
+  osc.start(t0); osc.stop(t0 + 0.32);
+}
+function playBeep(go) { tone(go ? 880 : 500, go ? 0.35 : 0.18, 'square', 0.16); }
+function playHorn() {
+  if (!soundOn) return;
+  [523, 659, 784].forEach((f, i) => tone(f, 0.45, 'sawtooth', 0.13, i * 0.13));
+  tone(1046, 0.55, 'sawtooth', 0.11, 0.42);
+}
+soundBtn.addEventListener('click', () => {
+  soundOn = !soundOn;
+  soundBtn.textContent = soundOn ? '🔊 Sound: On' : '🔇 Sound: Off';
+  if (soundOn) tone(660, 0.1, 'triangle', 0.1);
+});
 
 const BALL_R = 10;
 const FINISH_Y = WORLD_H - 120;
@@ -96,7 +187,12 @@ let obstacles = [];
 let balls = [];
 let animating = false;
 let cameraY = 0;
-let t = 0;
+let t = 0;            // cosmetic frame counter (pulses, grid)
+let simTime = 0;      // physics/animation clock; slows during a photo finish
+let slowmo = 1;       // 1 = normal, <1 = slow motion
+let zoom = 1;         // camera zoom for the photo finish
+let confetti = [];
+let counting = false; // true during the 3-2-1 countdown
 let finishOrder = [];   // names in order they crossed
 
 function getNames() {
@@ -224,6 +320,11 @@ function roundRect(x, y, w, h, r) {
 function draw() {
   ctx.clearRect(0, 0, VW, VH);
   ctx.save();
+  // photo-finish zoom, centered on the drama zone
+  if (zoom !== 1) {
+    const fx = VW / 2, fy = VH * 0.42;
+    ctx.translate(fx, fy); ctx.scale(zoom, zoom); ctx.translate(-fx, -fy);
+  }
   ctx.translate(0, -cameraY);
 
   for (let y = 200; y < WORLD_H; y += 200) {
@@ -245,7 +346,7 @@ function draw() {
       ctx.strokeStyle = '#5cc8ff'; ctx.lineWidth = 6; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(o.x1, o.y1); ctx.lineTo(o.x2, o.y2); ctx.stroke(); ctx.lineWidth = 1;
     } else if (o.type === 'spinner') {
-      const a = o.phase + t * o.speed;
+      const a = o.phase + simTime * o.speed;
       ctx.strokeStyle = '#b78bff'; ctx.lineWidth = 8; ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(o.x + Math.cos(a) * o.len, o.y + Math.sin(a) * o.len);
@@ -275,7 +376,7 @@ function draw() {
       ctx.fillStyle = exitCol; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(up ? '▲ warp' : '▼ warp', o.x, o.y + 3);
     } else if (o.type === 'pinwheel') {
-      const base = o.phase + t * o.speed;
+      const base = o.phase + simTime * o.speed;
       ctx.strokeStyle = '#ff7ce0'; ctx.lineWidth = 8; ctx.lineCap = 'round';
       ctx.shadowColor = '#ff7ce0'; ctx.shadowBlur = 8;
       for (let a = 0; a < o.arms; a++) {
@@ -324,6 +425,36 @@ function draw() {
   });
 
   ctx.restore();
+  drawConfetti();
+}
+
+// ---------- confetti ----------
+const confettiColors = ['#4ee1c1','#3aa0ff','#ff8fb3','#ffd166','#b78bff','#7bd88f','#ff9f68','#ffffff'];
+function spawnConfetti(n) {
+  for (let i = 0; i < n; i++) {
+    confetti.push({
+      x: rand(0, VW), y: rand(-VH * 0.3, 0),
+      vx: rand(-1.4, 1.4), vy: rand(1.5, 4),
+      size: rand(5, 11), color: pick(confettiColors),
+      rot: rand(0, Math.PI * 2), vr: rand(-0.2, 0.2), life: rand(120, 220)
+    });
+  }
+}
+function updateConfetti() {
+  for (let i = confetti.length - 1; i >= 0; i--) {
+    const p = confetti[i];
+    p.vy += 0.05; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life--;
+    if (p.life <= 0 || p.y > VH + 20) confetti.splice(i, 1);
+  }
+}
+function drawConfetti() {
+  confetti.forEach(p => {
+    ctx.save();
+    ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+    ctx.restore();
+  });
 }
 
 // ---------- physics ----------
@@ -338,7 +469,9 @@ function bounceCircle(b, px, py, pr, kick) {
     const nudge = (Math.random() - 0.5) * 2.0;
     b.vx = Math.cos(ang) * kick + nudge;
     b.vy = Math.max(Math.sin(ang) * kick, -kick) + 0.4;
+    return true;
   }
+  return false;
 }
 function bounceSegment(b, x1, y1, x2, y2) {
   const dx = x2 - x1, dy = y2 - y1;
@@ -354,7 +487,9 @@ function bounceSegment(b, x1, y1, x2, y2) {
     const dot = b.vx * nx + b.vy * ny;
     b.vx = (b.vx - 2 * dot * nx) * 0.7;
     b.vy = (b.vy - 2 * dot * ny) * 0.7;
+    return true;
   }
+  return false;
 }
 
 function ballBallCollisions() {
@@ -381,36 +516,45 @@ function ballBallCollisions() {
 
 function step() {
   t++;
+  // photo finish: when 2 or fewer balls are still racing, ease into slow-mo + zoom
+  const stillRacing = balls.filter(b => !b.finished).length;
+  const photo = stillRacing > 0 && stillRacing <= 2 && balls.length >= 2;
+  slowmo += ((photo ? 0.4 : 1) - slowmo) * 0.08;
+  zoom   += ((photo ? 1.45 : 1) - zoom) * 0.06;
+  simTime += slowmo;
+  updateConfetti();
+
   // update movers/spinner positions used in physics
   obstacles.forEach(o => {
-    if (o.type === 'mover') o._x = o.baseX + Math.sin(o.phase + t * o.speed) * o.amp;
-    else if (o.type === 'gate') o._x = o.baseX + Math.sin(o.phase + t * o.speed) * o.amp;
+    if (o.type === 'mover') o._x = o.baseX + Math.sin(o.phase + simTime * o.speed) * o.amp;
+    else if (o.type === 'gate') o._x = o.baseX + Math.sin(o.phase + simTime * o.speed) * o.amp;
   });
 
   balls.forEach(b => {
     if (b.finished) return;
     if (b.warpCd > 0) b.warpCd--;
-    b.vy += 0.16;
+    b.vy += 0.16 * slowmo;
     b.vx *= 0.99;
     b.vy = Math.min(b.vy, 4.6);
-    b.x += b.vx;
-    b.y += b.vy;
+    b.x += b.vx * slowmo;
+    b.y += b.vy * slowmo;
 
+    let hit = false;
     obstacles.forEach(o => {
-      if (o.type === 'peg') bounceCircle(b, o.x, o.y, o.r, 1.7);
-      else if (o.type === 'bumper') bounceCircle(b, o.x, o.y, o.r, 3.6);
-      else if (o.type === 'mover') bounceCircle(b, o._x, o.y, 7, 2.0);
-      else if (o.type === 'wall') bounceSegment(b, o.x1, o.y1, o.x2, o.y2);
+      if (o.type === 'peg') hit = bounceCircle(b, o.x, o.y, o.r, 1.7) || hit;
+      else if (o.type === 'bumper') hit = bounceCircle(b, o.x, o.y, o.r, 3.6) || hit;
+      else if (o.type === 'mover') hit = bounceCircle(b, o._x, o.y, 7, 2.0) || hit;
+      else if (o.type === 'wall') hit = bounceSegment(b, o.x1, o.y1, o.x2, o.y2) || hit;
       else if (o.type === 'spinner') {
-        const a = o.phase + t * o.speed;
-        bounceSegment(b, o.x + Math.cos(a)*o.len, o.y + Math.sin(a)*o.len,
-                         o.x - Math.cos(a)*o.len, o.y - Math.sin(a)*o.len);
+        const a = o.phase + simTime * o.speed;
+        hit = bounceSegment(b, o.x + Math.cos(a)*o.len, o.y + Math.sin(a)*o.len,
+                         o.x - Math.cos(a)*o.len, o.y - Math.sin(a)*o.len) || hit;
       }
       else if (o.type === 'pinwheel') {
-        const base = o.phase + t * o.speed;
+        const base = o.phase + simTime * o.speed;
         for (let a = 0; a < o.arms; a++) {
           const ang = base + a * (Math.PI * 2 / o.arms);
-          bounceSegment(b, o.x, o.y, o.x + Math.cos(ang) * o.len, o.y + Math.sin(ang) * o.len);
+          hit = bounceSegment(b, o.x, o.y, o.x + Math.cos(ang) * o.len, o.y + Math.sin(ang) * o.len) || hit;
         }
       }
       else if (o.type === 'tramp') {
@@ -418,10 +562,11 @@ function step() {
         if (Math.abs(b.x - o.x) < o.w && b.y + BALL_R > o.y && b.y < o.y + 12 && b.vy > 0) {
           b.y = o.y - BALL_R;
           b.vy = -Math.max(3.2, b.vy * 0.9);
+          hit = true;
         }
       }
       else if (o.type === 'gate') {
-        bounceSegment(b, o._x - o.w / 2, o.y, o._x + o.w / 2, o.y);
+        hit = bounceSegment(b, o._x - o.w / 2, o.y, o._x + o.w / 2, o.y) || hit;
       }
       else if (o.type === 'portal') {
         const d = Math.hypot(b.x - o.x, b.y - o.y);
@@ -431,16 +576,19 @@ function step() {
           b.vx = (Math.random() - 0.5) * 1.5;
           b.vy = 0.5;
           b.warpCd = 90;   // avoid immediate re-warp
+          playWhoosh();
         }
       }
     });
+    if (hit) playPing();
 
     if (b.x < BALL_R) { b.x = BALL_R; b.vx = Math.abs(b.vx); }
     if (b.x > WORLD_W - BALL_R) { b.x = WORLD_W - BALL_R; b.vx = -Math.abs(b.vx); }
 
     // anti-stuck: if no meaningful downward progress for ~3s, warp upward and shove free
+    // (paused during the slow-mo photo finish so it doesn't yank a ball mid-drama)
     if (b.y > b.bestY + 4) { b.bestY = b.y; b.stuckFrames = 0; }
-    else { b.stuckFrames++; }
+    else if (slowmo > 0.9) { b.stuckFrames++; }
     if (b.stuckFrames > 180) {
       b.y = Math.max(120, b.y - 160);
       b.x = Math.min(WORLD_W - BALL_R, Math.max(BALL_R, b.x + rand(-60, 60)));
@@ -455,6 +603,7 @@ function step() {
       b.finished = true;
       finishOrder.push(b.name);
       updateOrder();
+      tone(340, 0.14, 'sine', 0.1);   // soft blip as each ball crosses
     }
   });
 
@@ -486,28 +635,63 @@ function finish() {
   dropBtn.disabled = false;
   const loser = finishOrder[finishOrder.length - 1];
   winnerEl.textContent = `⭐ ${loser} leads the next huddle!`;
-  // snap camera to finish so everyone sees the line
+  bannerNameEl.textContent = loser;
+  bannerEl.classList.remove('show');   // restart the pop animation
+  void bannerEl.offsetWidth;
+  bannerEl.classList.add('show');
+  spawnConfetti(150);
+  setTimeout(() => spawnConfetti(90), 250);
+  setTimeout(() => spawnConfetti(90), 550);
+  playHorn();
   draw();
 }
 
 function start() {
-  if (animating) return;
+  if (animating || counting) return;
   buildBoard();
   spawnBalls();
   finishOrder = [];
   winnerEl.textContent = '';
   orderEl.textContent = '';
-  t = 0; cameraY = 0;
-  animating = true;
+  bannerEl.classList.remove('show');
+  confetti = [];
+  t = 0; simTime = 0; cameraY = 0; slowmo = 1; zoom = 1;
   dropBtn.disabled = true;
-  step();
+  if (soundOn) audio();   // unlock audio on the user's click
+  runCountdown();
+}
+
+function runCountdown() {
+  counting = true;
+  const seq = ['3', '2', '1', 'GO!'];
+  let i = 0;
+  const next = () => {
+    if (i >= seq.length) {
+      counting = false;
+      countdownEl.classList.remove('show', 'flash');
+      animating = true;
+      step();
+      return;
+    }
+    const val = seq[i];
+    countdownEl.textContent = val;
+    countdownEl.classList.add('show');
+    countdownEl.classList.remove('flash'); void countdownEl.offsetWidth; countdownEl.classList.add('flash');
+    playBeep(val === 'GO!');
+    i++;
+    setTimeout(next, 700);
+  };
+  next();
 }
 
 dropBtn.addEventListener('click', start);
 resetBtn.addEventListener('click', () => {
-  animating = false; balls = []; finishOrder = [];
+  animating = false; counting = false; balls = []; finishOrder = [];
   winnerEl.textContent = ''; orderEl.textContent = '';
-  cameraY = 0; t = 0; buildBoard(); spawnBalls();
+  bannerEl.classList.remove('show'); countdownEl.classList.remove('show', 'flash'); confetti = [];
+  cameraY = 0; t = 0; simTime = 0; slowmo = 1; zoom = 1;
+  dropBtn.disabled = false;
+  buildBoard(); spawnBalls();
   balls.forEach(b => b.vy = 0); draw();
 });
 namesEl.addEventListener('input', () => { if (!animating) { buildBoard(); spawnBalls(); draw(); } });
@@ -516,10 +700,16 @@ namesEl.addEventListener('input', () => { if (!animating) { buildBoard(); spawnB
 function idle() {
   if (!animating) {
     t++;
+    slowmo += (1 - slowmo) * 0.1;
+    zoom += (1 - zoom) * 0.08;
+    if (Math.abs(zoom - 1) < 0.005) zoom = 1;
+    simTime += slowmo;
     obstacles.forEach(o => {
-      if (o.type === 'mover' || o.type === 'gate') o._x = o.baseX + Math.sin(o.phase + t * o.speed) * o.amp;
+      if (o.type === 'mover' || o.type === 'gate') o._x = o.baseX + Math.sin(o.phase + simTime * o.speed) * o.amp;
     });
-    cameraY = 0; draw();
+    cameraY = 0;
+    updateConfetti();
+    draw();
   }
   requestAnimationFrame(idle);
 }
