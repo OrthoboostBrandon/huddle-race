@@ -235,8 +235,8 @@ function buildBoard() {
       y += 170;
     } else if (type === 'ramps') {
       const dir = Math.random() < 0.5;
-      obstacles.push({ type: 'wall', x1: dir ? 30 : WORLD_W - 30, y1: y + 20, x2: WORLD_W / 2 + rand(-60, 60), y2: y + rand(90, 140) });
-      obstacles.push({ type: 'wall', x1: dir ? WORLD_W - 30 : 30, y1: y + 60, x2: WORLD_W / 2 + rand(-60, 60), y2: y + rand(130, 180) });
+      pushWall(dir ? 30 : WORLD_W - 30, y + 20, WORLD_W / 2 + rand(-60, 60), y + rand(90, 140), rand(35, 60));
+      pushWall(dir ? WORLD_W - 30 : 30, y + 60, WORLD_W / 2 + rand(-60, 60), y + rand(130, 180), rand(35, 60));
       y += 200;
     } else if (type === 'portal') {
       // warps the ball elsewhere: sometimes back up the board, sometimes a shortcut down
@@ -270,9 +270,31 @@ function buildBoard() {
       y += 210;
     }
   }
-  // funnel ramps into the finish line every time
-  obstacles.push({ type: 'wall', x1: 20, y1: FINISH_Y - 110, x2: 150, y2: FINISH_Y - 10 });
-  obstacles.push({ type: 'wall', x1: WORLD_W - 20, y1: FINISH_Y - 110, x2: WORLD_W - 150, y2: FINISH_Y - 10 });
+  // funnel ramps into the finish line every time (gentle drift so nothing is static)
+  pushWall(20, FINISH_Y - 110, 150, FINISH_Y - 10, 20);
+  pushWall(WORLD_W - 20, FINISH_Y - 110, WORLD_W - 150, FINISH_Y - 10, 20);
+  animateObstacles();
+}
+
+function pushWall(x1, y1, x2, y2, amp) {
+  obstacles.push({
+    type: 'wall', x1, y1, x2, y2,
+    phase: rand(0, 6), amp, speed: rand(0.02, 0.04),
+    ax1: x1, ay1: y1, ax2: x2, ay2: y2
+  });
+}
+
+// recompute animated positions of every moving obstacle for the current frame
+function animateObstacles() {
+  obstacles.forEach(o => {
+    if (o.type === 'mover' || o.type === 'gate') {
+      o._x = o.baseX + Math.sin(o.phase + simTime * o.speed) * o.amp;
+    } else if (o.type === 'wall') {
+      const d = Math.sin(o.phase + simTime * o.speed) * o.amp;
+      o.ax1 = o.x1 + d; o.ay1 = o.y1;
+      o.ax2 = o.x2 - d; o.ay2 = o.y2;   // ends drift opposite ways so the bar rocks
+    }
+  });
 }
 
 function addPegRows(startY, rows, cols, rowGap) {
@@ -412,7 +434,7 @@ function draw() {
       ctx.beginPath(); ctx.arc(o.x, o.y, o.r * 0.5, 0, Math.PI * 2); ctx.fill();
     } else if (o.type === 'wall') {
       ctx.strokeStyle = '#5cc8ff'; ctx.lineWidth = 6; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(o.x1, o.y1); ctx.lineTo(o.x2, o.y2); ctx.stroke(); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(o.ax1, o.ay1); ctx.lineTo(o.ax2, o.ay2); ctx.stroke(); ctx.lineWidth = 1;
     } else if (o.type === 'spinner') {
       const a = o.phase + simTime * o.speed;
       ctx.strokeStyle = '#b78bff'; ctx.lineWidth = 8; ctx.lineCap = 'round';
@@ -598,12 +620,7 @@ function step() {
   zoom   += ((photo ? 1.45 : 1) - zoom) * 0.06;
   simTime += slowmo;
   updateConfetti();
-
-  // update movers/spinner positions used in physics
-  obstacles.forEach(o => {
-    if (o.type === 'mover') o._x = o.baseX + Math.sin(o.phase + simTime * o.speed) * o.amp;
-    else if (o.type === 'gate') o._x = o.baseX + Math.sin(o.phase + simTime * o.speed) * o.amp;
-  });
+  animateObstacles();
 
   balls.forEach(b => {
     if (b.finished) return;
@@ -619,7 +636,7 @@ function step() {
       if (o.type === 'peg') hit = bounceCircle(b, o.x, o.y, o.r, 1.7) || hit;
       else if (o.type === 'bumper') hit = bounceCircle(b, o.x, o.y, o.r, 3.6) || hit;
       else if (o.type === 'mover') hit = bounceCircle(b, o._x, o.y, 7, 2.0) || hit;
-      else if (o.type === 'wall') hit = bounceSegment(b, o.x1, o.y1, o.x2, o.y2) || hit;
+      else if (o.type === 'wall') hit = bounceSegment(b, o.ax1, o.ay1, o.ax2, o.ay2) || hit;
       else if (o.type === 'spinner') {
         const a = o.phase + simTime * o.speed;
         hit = bounceSegment(b, o.x + Math.cos(a)*o.len, o.y + Math.sin(a)*o.len,
@@ -779,9 +796,7 @@ function idle() {
     zoom += (1 - zoom) * 0.08;
     if (Math.abs(zoom - 1) < 0.005) zoom = 1;
     simTime += slowmo;
-    obstacles.forEach(o => {
-      if (o.type === 'mover' || o.type === 'gate') o._x = o.baseX + Math.sin(o.phase + simTime * o.speed) * o.amp;
-    });
+    animateObstacles();
     cameraY = 0;
     updateConfetti();
     draw();
