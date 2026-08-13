@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Huddle Plinko Race — Last One Leads</title>
+<title>Huddle Grand Prix — Last Car Leads</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -11,9 +11,7 @@
     background: radial-gradient(circle at 50% 0%, #1b2a4a 0%, #0d1526 70%);
     color: #f2f6ff;
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    display: flex; flex-direction: column; align-items: center;
     padding: 24px 16px 48px;
   }
   h1 { font-size: 26px; letter-spacing: 0.5px; margin-bottom: 4px; }
@@ -22,9 +20,7 @@
   .panel {
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px;
-    padding: 18px;
-    width: 280px;
+    border-radius: 14px; padding: 18px; width: 280px;
   }
   .panel h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 1px; color: #7fd4c1; margin-bottom: 12px; }
   textarea {
@@ -42,14 +38,11 @@
   .drop { background: linear-gradient(135deg,#4ee1c1,#3aa0ff); color: #06202b; }
   .drop:disabled { filter: grayscale(0.6) brightness(0.7); cursor: not-allowed; }
   .ghost { background: rgba(255,255,255,0.08); color: #cfe0ff; }
-  canvas { background: linear-gradient(180deg,#0f1a30,#0a1120); border-radius: 14px; display: block; }
-  .winner {
-    margin-top: 16px; font-size: 22px; font-weight: 700; min-height: 30px;
-    text-align: center; color: #ffe27a;
-  }
+  canvas { background: #14351f; border-radius: 14px; display: block; }
+  .winner { margin-top: 16px; font-size: 22px; font-weight: 700; min-height: 30px; text-align: center; color: #ffe27a; }
   .order { margin-top: 10px; font-size: 13px; color: #9fb4d8; text-align: center; min-height: 18px; }
   .hint { color: #6f85a8; font-size: 12px; margin-top: 10px; line-height: 1.5; }
-  .stage { position: relative; width: 560px; max-width: 100%; }
+  .stage { position: relative; width: 640px; max-width: 100%; }
   .banner {
     position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(0.6);
     text-align: center; pointer-events: none; opacity: 0; transition: opacity .25s ease;
@@ -64,11 +57,26 @@
     text-shadow: 0 2px 18px rgba(255,226,122,0.5); line-height: 1.05; word-break: break-word; }
   .banner-sub { font-size: 14px; color: #cfe0ff; }
   .countdown {
-    position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%);
+    position: absolute; left: 50%; top: 45%; transform: translate(-50%,-50%);
     font-size: 130px; font-weight: 900; color: #fff; pointer-events: none;
     opacity: 0; text-shadow: 0 4px 30px rgba(78,225,193,0.7); letter-spacing: 2px;
   }
   .countdown.show { opacity: 1; }
+  .positions-panel { width: 210px; }
+  .positions { list-style: none; margin: 0; padding: 0; counter-reset: pos; }
+  .positions li {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; margin-bottom: 6px; border-radius: 8px;
+    background: rgba(255,255,255,0.05); font-size: 14px; font-weight: 600;
+    transition: background .2s;
+  }
+  .positions li .rank { width: 20px; color: #8fa6cc; font-variant-numeric: tabular-nums; }
+  .positions li .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+  .positions li .nm { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .positions li .st { font-size: 11px; color: #8fa6cc; font-weight: 500; }
+  .positions li.last { background: rgba(255,226,122,0.16); box-shadow: inset 0 0 0 1px rgba(255,226,122,0.4); }
+  .positions li.last .st { color: #ffe27a; }
+  .positions li.done .st { color: #7bd88f; }
   .countdown.flash { animation: cd .7s ease-out; }
   @keyframes cd {
     0% { transform: translate(-50%,-50%) scale(0.4); opacity: 0; }
@@ -78,12 +86,12 @@
 </style>
 </head>
 <body>
-  <h1>🦷 Huddle Plinko Race</h1>
-  <div class="sub">Every name gets a ball. Last one across the finish line leads the next huddle.</div>
+  <h1>🏁 Huddle Grand Prix</h1>
+  <div class="sub">Every name gets a car. They race a fresh random track. Last car across leads the next huddle.</div>
 
   <div class="layout">
     <div class="panel">
-      <h2>Team</h2>
+      <h2>Drivers</h2>
       <textarea id="names" placeholder="One name per line">Brandon
 Sarah
 Marcus
@@ -91,14 +99,14 @@ Priya
 Devon
 Lena</textarea>
       <button class="drop" id="dropBtn">Start the race</button>
-      <button class="ghost" id="resetBtn">Reset board</button>
+      <button class="ghost" id="resetBtn">New track</button>
       <button class="ghost" id="soundBtn">🔊 Sound: On</button>
-      <div class="hint">Add up to 8 names. Camera follows the lead ball. Being fast is bad here: the very last ball to cross the finish line has to lead.</div>
+      <div class="hint">Up to 8 drivers. New track every race, with oil slicks and mud (slow you down) and boost pads (speed you up). Camera follows the leader. Finishing last means you lead the meeting.</div>
     </div>
 
     <div>
       <div class="stage">
-        <canvas id="board" width="560" height="640"></canvas>
+        <canvas id="board" width="640" height="600"></canvas>
         <div class="banner" id="banner">
           <div class="banner-kicker">YOU'RE UP</div>
           <div class="banner-name" id="bannerName"></div>
@@ -109,28 +117,59 @@ Lena</textarea>
       <div class="winner" id="winner"></div>
       <div class="order" id="order"></div>
     </div>
+
+    <div class="panel positions-panel">
+      <h2>Positions</h2>
+      <ol id="positions" class="positions"></ol>
+      <div class="hint">Live running order. The car in last place (highlighted) is on track to lead the next huddle.</div>
+    </div>
   </div>
 
 <script>
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const VW = canvas.width, VH = canvas.height;
-const WORLD_W = VW;
-const WORLD_H = 3400;
 const namesEl = document.getElementById('names');
 const dropBtn = document.getElementById('dropBtn');
 const resetBtn = document.getElementById('resetBtn');
+const soundBtn = document.getElementById('soundBtn');
 const winnerEl = document.getElementById('winner');
 const orderEl = document.getElementById('order');
 const bannerEl = document.getElementById('banner');
 const bannerNameEl = document.getElementById('bannerName');
 const countdownEl = document.getElementById('countdown');
-const soundBtn = document.getElementById('soundBtn');
+const positionsEl = document.getElementById('positions');
 
-// ---------- sound (Web Audio, no files needed) ----------
-let audioCtx = null;
-let soundOn = true;
-let lastPing = 0;
+// ---------- track / world constants ----------
+const CX = 820, CY = 600, BASE_R = 380;
+const ROAD_W = 132;
+const LANE_GAP = 12;
+const LANE_WIGGLE = 9;
+const LAPS = 2;
+const CAR_L = 24, CAR_W = 12;
+
+const carColors = ['#4ee1c1','#3aa0ff','#ff8fb3','#ffd166','#b78bff','#7bd88f','#ff9f68','#69d6ff'];
+const hatTypes = ['party','top','crown','beanie','cap','cowboy','halo','propeller'];
+const hatColors = ['#ff5b7f','#4ee1c1','#3aa0ff','#ffd166','#b78bff','#7bd88f','#ff9f68'];
+
+let path = [], cum = [], total = 0;
+let obstacles = [];
+let cars = [];
+let finishOrder = [];
+let animating = false, counting = false;
+let t = 0, simTime = 0, slowmo = 1, zoom = 0.9;
+let camX = CX, camY = CY;
+let confetti = [];
+
+function getNames() {
+  return namesEl.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 8);
+}
+function rand(a, b) { return a + Math.random() * (b - a); }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function dist2(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+// ---------- sound ----------
+let audioCtx = null, soundOn = true, lastPing = 0;
 function audio() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -138,8 +177,8 @@ function audio() {
 }
 function tone(freq, dur, type, vol, offset) {
   if (!soundOn) return;
-  const ac = audio(); const t0 = ac.currentTime + (offset || 0);
-  const osc = ac.createOscillator(); const g = ac.createGain();
+  const ac = audio(), t0 = ac.currentTime + (offset || 0);
+  const osc = ac.createOscillator(), g = ac.createGain();
   osc.type = type || 'sine'; osc.frequency.value = freq;
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.linearRampToValueAtTime(vol, t0 + 0.006);
@@ -147,25 +186,33 @@ function tone(freq, dur, type, vol, offset) {
   osc.connect(g).connect(ac.destination);
   osc.start(t0); osc.stop(t0 + dur + 0.02);
 }
-function playPing() {
+function playThud() { if (soundOn) { const n = performance.now(); if (n - lastPing > 40) { lastPing = n; tone(150, 0.12, 'square', 0.13); } } }
+function playSkid() { tone(230, 0.2, 'sawtooth', 0.1); }
+function playBoost() {
   if (!soundOn) return;
-  const now = performance.now();
-  if (now - lastPing < 45) return;   // throttle so many hits don't crackle
-  lastPing = now;
-  tone(420 + Math.random() * 520, 0.08, 'triangle', 0.11);
-}
-function playWhoosh() {
-  if (!soundOn) return;
-  const ac = audio(); const t0 = ac.currentTime;
-  const osc = ac.createOscillator(); const g = ac.createGain();
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(180, t0);
-  osc.frequency.exponentialRampToValueAtTime(950, t0 + 0.25);
+  const ac = audio(), t0 = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(420, t0);
+  o.frequency.exponentialRampToValueAtTime(1150, t0 + 0.22);
   g.gain.setValueAtTime(0.0001, t0);
-  g.gain.linearRampToValueAtTime(0.13, t0 + 0.03);
-  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
-  osc.connect(g).connect(ac.destination);
-  osc.start(t0); osc.stop(t0 + 0.32);
+  g.gain.linearRampToValueAtTime(0.12, t0 + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.26);
+  o.connect(g).connect(ac.destination);
+  o.start(t0); o.stop(t0 + 0.28);
+}
+function playWarp() {
+  if (!soundOn) return;
+  const ac = audio(), t0 = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(900, t0);
+  o.frequency.exponentialRampToValueAtTime(120, t0 + 0.35);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(0.13, t0 + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4);
+  o.connect(g).connect(ac.destination);
+  o.start(t0); o.stop(t0 + 0.42);
 }
 function playBeep(go) { tone(go ? 880 : 500, go ? 0.35 : 0.18, 'square', 0.16); }
 function playHorn() {
@@ -179,159 +226,116 @@ soundBtn.addEventListener('click', () => {
   if (soundOn) tone(660, 0.1, 'triangle', 0.1);
 });
 
-const BALL_R = 10;
-const FINISH_Y = WORLD_H - 120;
-const ballColors = ['#4ee1c1','#3aa0ff','#ff8fb3','#ffd166','#b78bff','#7bd88f','#ff9f68','#69d6ff'];
-
-let obstacles = [];
-let balls = [];
-let animating = false;
-let cameraY = 0;
-let t = 0;            // cosmetic frame counter (pulses, grid)
-let simTime = 0;      // physics/animation clock; slows during a photo finish
-let slowmo = 1;       // 1 = normal, <1 = slow motion
-let zoom = 1;         // camera zoom for the photo finish
-let confetti = [];
-let counting = false; // true during the 3-2-1 countdown
-let finishOrder = [];   // names in order they crossed
-
-function getNames() {
-  return namesEl.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 8);
+// ---------- track generation ----------
+function catmull(p0, p1, p2, p3, s) {
+  const s2 = s * s, s3 = s2 * s;
+  return {
+    x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * s + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * s2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * s3),
+    y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * s + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * s2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * s3)
+  };
 }
-
-function rand(a, b) { return a + Math.random() * (b - a); }
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-
-// Randomly assembled course. Bands are stacked top to bottom; each band's
-// type is chosen at random so no two races look the same.
-function buildBoard() {
+function buildTrack() {
+  const n = 9 + Math.floor(rand(0, 4));
+  const ctrl = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const r = BASE_R * rand(0.62, 1.15);
+    ctrl.push({ x: CX + Math.cos(a) * r, y: CY + Math.sin(a) * r * 0.82 });
+  }
+  const seg = 22;
+  path = [];
+  for (let i = 0; i < n; i++) {
+    const p0 = ctrl[(i - 1 + n) % n], p1 = ctrl[i], p2 = ctrl[(i + 1) % n], p3 = ctrl[(i + 2) % n];
+    for (let s = 0; s < seg; s++) path.push(catmull(p0, p1, p2, p3, s / seg));
+  }
+  // arc lengths (closed)
+  cum = [0]; total = 0;
+  for (let i = 1; i < path.length; i++) { total += dist2(path[i - 1], path[i]); cum.push(total); }
+  total += dist2(path[path.length - 1], path[0]); cum.push(total);
+  placeObstacles();
+  const s0 = sampleAt(0); camX = s0.x; camY = s0.y;
+}
+function sampleAt(d) {
+  d = ((d % total) + total) % total;
+  let i = 0;
+  while (i < path.length && cum[i + 1] <= d) i++;
+  const a = path[i % path.length], b = path[(i + 1) % path.length];
+  const segLen = (cum[i + 1] - cum[i]) || 1;
+  const f = (d - cum[i]) / segLen;
+  let tx = b.x - a.x, ty = b.y - a.y;
+  const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+  return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, tx, ty };
+}
+function placeObstacles() {
   obstacles = [];
-  const bandTypes = ['pegs', 'bumpers', 'spinners', 'movers', 'ramps', 'mixed',
-                     'portal', 'pinwheel', 'gates'];
-  let y = 170;
-  const bottomLimit = FINISH_Y - 130;
-  while (y < bottomLimit) {
-    const type = pick(bandTypes);
-    if (type === 'pegs') {
-      const rows = Math.floor(rand(3, 6));
-      addPegRows(y, rows, Math.floor(rand(6, 10)), rand(52, 64));
-      y += rows * 60 + 40;
-    } else if (type === 'bumpers') {
-      addBumperCluster(y + 60);
-      y += 200;
-    } else if (type === 'spinners') {
-      const count = Math.floor(rand(1, 4));
-      for (let i = 0; i < count; i++) {
-        obstacles.push({ type: 'spinner', x: rand(120, WORLD_W - 120), y: y + 70,
-          len: rand(65, 95), speed: rand(0.03, 0.06) * (Math.random() < 0.5 ? 1 : -1), phase: rand(0, 6) });
-      }
-      y += 200;
-    } else if (type === 'movers') {
-      const n = Math.floor(rand(4, 6));
-      for (let i = 0; i < n; i++) {
-        const bx = 80 + i * (WORLD_W - 160) / (n - 1);
-        obstacles.push({ type: 'mover', baseX: bx, y: y + 60, amp: rand(40, 70), speed: rand(0.015, 0.03), phase: rand(0, 6), _x: bx });
-      }
-      y += 170;
-    } else if (type === 'ramps') {
-      const dir = Math.random() < 0.5;
-      pushWall(dir ? 30 : WORLD_W - 30, y + 20, WORLD_W / 2 + rand(-60, 60), y + rand(90, 140), rand(35, 60));
-      pushWall(dir ? WORLD_W - 30 : 30, y + 60, WORLD_W / 2 + rand(-60, 60), y + rand(130, 180), rand(35, 60));
-      y += 200;
-    } else if (type === 'portal') {
-      // warps the ball elsewhere: sometimes back up the board, sometimes a shortcut down
-      const ex = rand(90, WORLD_W - 90);
-      const goUp = Math.random() < 0.55;
-      const dist = rand(240, 460);
-      let ty = goUp ? (y + 70 - dist) : (y + 70 + dist);
-      ty = Math.max(120, Math.min(ty, FINISH_Y - 90));
-      obstacles.push({ type: 'portal', x: rand(90, WORLD_W - 90), y: y + 70, r: 26, tx: ex, ty, dir: goUp ? 'up' : 'down' });
-      y += 200;
-    } else if (type === 'pinwheel') {
-      obstacles.push({ type: 'pinwheel', x: rand(140, WORLD_W - 140), y: y + 80,
-        len: rand(70, 100), arms: Math.floor(rand(3, 5)), speed: rand(0.03, 0.055) * (Math.random() < 0.5 ? 1 : -1), phase: rand(0, 6) });
-      y += 210;
-    } else if (type === 'trampoline') {
-      const n = Math.floor(rand(2, 4));
-      for (let i = 0; i < n; i++) {
-        const tx = 70 + i * (WORLD_W - 140) / (n - 1 || 1);
-        obstacles.push({ type: 'tramp', x: tx, y: y + rand(40, 100), w: rand(50, 80) });
-      }
-      y += 180;
-    } else if (type === 'gates') {
-      // two horizontal bars sliding opposite ways, leaving shifting gaps
-      obstacles.push({ type: 'gate', y: y + 50, w: 150, baseX: rand(120, WORLD_W - 120), amp: rand(80, 140), speed: rand(0.02, 0.035), phase: 0, _x: 0 });
-      obstacles.push({ type: 'gate', y: y + 130, w: 150, baseX: rand(120, WORLD_W - 120), amp: rand(80, 140), speed: rand(0.02, 0.035), phase: 3, _x: 0 });
-      y += 210;
-    } else { // mixed
-      addPegRows(y, 2, Math.floor(rand(6, 9)), 58);
-      obstacles.push({ type: 'bumper', x: rand(120, WORLD_W - 120), y: y + 130, r: 20 });
-      obstacles.push({ type: 'spinner', x: rand(120, WORLD_W - 120), y: y + 130, len: rand(60, 85), speed: rand(0.03, 0.06) * (Math.random() < 0.5 ? 1 : -1), phase: rand(0, 6) });
-      y += 210;
-    }
-  }
-  // funnel ramps into the finish line every time (gentle drift so nothing is static)
-  pushWall(20, FINISH_Y - 110, 150, FINISH_Y - 10, 20);
-  pushWall(WORLD_W - 20, FINISH_Y - 110, WORLD_W - 150, FINISH_Y - 10, 20);
-  animateObstacles();
-}
-
-function pushWall(x1, y1, x2, y2, amp) {
-  obstacles.push({
-    type: 'wall', x1, y1, x2, y2,
-    phase: rand(0, 6), amp, speed: rand(0.02, 0.04),
-    ax1: x1, ay1: y1, ax2: x2, ay2: y2
-  });
-}
-
-// recompute animated positions of every moving obstacle for the current frame
-function animateObstacles() {
-  obstacles.forEach(o => {
-    if (o.type === 'mover' || o.type === 'gate') {
-      o._x = o.baseX + Math.sin(o.phase + simTime * o.speed) * o.amp;
-    } else if (o.type === 'wall') {
-      const d = Math.sin(o.phase + simTime * o.speed) * o.amp;
-      o.ax1 = o.x1 + d; o.ay1 = o.y1;
-      o.ax2 = o.x2 - d; o.ay2 = o.y2;   // ends drift opposite ways so the bar rocks
-    }
-  });
-}
-
-function addPegRows(startY, rows, cols, rowGap) {
-  for (let r = 0; r < rows; r++) {
-    const y = startY + r * rowGap;
-    const offset = (r % 2) ? (WORLD_W / (cols + 1)) / 2 : 0;
-    const gap = WORLD_W / (cols + 1);
-    for (let c = 0; c < cols; c++) {
-      const x = gap * (c + 1) + offset;
-      if (x > 15 && x < WORLD_W - 15) obstacles.push({ type: 'peg', x, y, r: 5 });
-    }
+  const k = 7 + Math.floor(rand(0, 5));
+  const pool = ['oil', 'oil', 'cone', 'mud', 'boost', 'boost', 'barrier', 'ice', 'wormhole', 'mud', 'cone'];
+  for (let i = 0; i < k; i++) {
+    const type = pick(pool);
+    obstacles.push({
+      d: rand(total * 0.1, total * 0.95),
+      type,
+      lane: rand(-ROAD_W / 2 + 22, ROAD_W / 2 - 22),
+      r: (type === 'boost' || type === 'wormhole') ? 26 : (type === 'barrier' ? 24 : 22)
+    });
   }
 }
-function addBumperCluster(cy) {
-  [[140, cy], [280, cy - 40], [420, cy], [210, cy + 60], [350, cy + 60]]
-    .forEach(([x, y]) => obstacles.push({ type: 'bumper', x, y, r: 20 }));
-}
 
-const hatTypes = ['party', 'top', 'crown', 'beanie', 'cap', 'cowboy', 'halo', 'propeller'];
-const hatColors = ['#ff5b7f', '#4ee1c1', '#3aa0ff', '#ffd166', '#b78bff', '#7bd88f', '#ff9f68'];
-
-function spawnBalls() {
+// ---------- cars ----------
+function spawnCars() {
   const names = getNames();
-  balls = names.map((name, i) => ({
+  const cnt = names.length;
+  cars = names.map((name, i) => ({
     name,
-    color: ballColors[i % ballColors.length],
-    hat: pick(hatTypes),          // randomized each run
+    color: carColors[i % carColors.length],
+    hat: pick(hatTypes),
     hatColor: pick(hatColors),
-    x: (WORLD_W / (names.length + 1)) * (i + 1) + (Math.random() - 0.5) * 20,
-    y: 30 + (i % 2) * 26,
-    vx: (Math.random() - 0.5) * 2,
-    vy: 0,
+    lane: (i - (cnt - 1) / 2) * LANE_GAP,
+    laneFreq: rand(0.01, 0.03), lanePhase: rand(0, 6),
+    dist: -i * 10,
+    base: rand(2.7, 3.3),
+    speed: 0,
+    phase: rand(0, 6), freq: rand(0.012, 0.024),
+    slowT: 0, boostT: 0, spin: 0, obsCd: 0,
     finished: false,
-    warpCd: 0,
-    bestY: 0,        // deepest point reached
-    stuckFrames: 0   // frames without downward progress
+    px: 0, py: 0, tx: 1, ty: 0
   }));
+  cars.forEach(positionCar);
+}
+function effLane(c) { return c.lane + Math.sin(simTime * c.laneFreq + c.lanePhase) * LANE_WIGGLE; }
+function positionCar(c) {
+  const s = sampleAt(c.dist);
+  const nx = -s.ty, ny = s.tx;
+  const lane = effLane(c);
+  c.px = s.x + nx * lane; c.py = s.y + ny * lane;
+  c.tx = s.tx; c.ty = s.ty;
+}
+function leadCar() {
+  return cars.reduce((m, c) => (c.dist > m.dist ? c : m), cars[0]);
+}
+function checkObstacles(c) {
+  if (c.obsCd > 0) { c.obsCd--; return; }
+  const ld = ((c.dist % total) + total) % total;
+  const lane = effLane(c);
+  for (const o of obstacles) {
+    let dd = Math.abs(ld - o.d); dd = Math.min(dd, total - dd);
+    if (dd < o.r && Math.abs(lane - o.lane) < o.r * 0.75) {
+      if (o.type === 'boost') { c.boostT = 45; playBoost(); }
+      else if (o.type === 'oil') { c.slowT = 45; c.spin = Math.PI * 2.5; playSkid(); }
+      else if (o.type === 'mud') { c.slowT = 55; playThud(); }
+      else if (o.type === 'barrier') { c.slowT = 70; c.speed *= 0.12; c.spin = Math.PI * 1.5; playThud(); }
+      else if (o.type === 'ice') {
+        c.slowT = 20; c.spin = (Math.random() < 0.5 ? 1 : -1) * Math.PI * 3;
+        c.lane = Math.max(-ROAD_W / 2 + 28, Math.min(ROAD_W / 2 - 28, c.lane + rand(-28, 28)));
+        c.lanePhase = rand(0, 6); playSkid();
+      }
+      else if (o.type === 'wormhole') { c.dist -= rand(140, 240); c.spin = Math.PI * 3; playWarp(); }
+      else { c.slowT = 28; playThud(); }
+      // long immunity after a warp so the car can pass back through without re-triggering (no infinite loop)
+      c.obsCd = o.type === 'wormhole' ? 200 : 26;
+      break;
+    }
+  }
 }
 
 // ---------- drawing ----------
@@ -344,24 +348,125 @@ function roundRect(x, y, w, h, r) {
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
 }
-
-// little randomized hats
-function drawHat(b) {
-  const x = b.x, topY = b.y - BALL_R;
+function strokePath(width, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.beginPath();
+  path.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+  ctx.closePath(); ctx.stroke();
+}
+function drawTrack() {
+  strokePath(ROAD_W + 12, '#20242e');   // curb border
+  strokePath(ROAD_W, '#3a3f4b');         // road
+  ctx.setLineDash([16, 20]);
+  strokePath(3, 'rgba(255,255,255,0.45)'); // center line
+  ctx.setLineDash([]);
+  // start / finish line
+  const s = sampleAt(0), ang = Math.atan2(s.ty, s.tx);
+  const nx = -s.ty, ny = s.tx, half = ROAD_W / 2, sq = 11;
+  for (let w = -half; w < half; w += sq) {
+    ctx.save();
+    ctx.translate(s.x + nx * (w + sq / 2), s.y + ny * (w + sq / 2));
+    ctx.rotate(ang);
+    ctx.fillStyle = (Math.floor((w + half) / sq) % 2) ? '#f2f6ff' : '#12203a';
+    ctx.fillRect(-sq / 2, -sq * 1.2, sq, sq * 2.4);
+    ctx.restore();
+  }
+}
+function drawObstacle(o) {
+  const s = sampleAt(o.d), nx = -s.ty, ny = s.tx;
+  const x = s.x + nx * o.lane, y = s.y + ny * o.lane, ang = Math.atan2(s.ty, s.tx);
+  ctx.save(); ctx.translate(x, y);
+  if (o.type === 'oil') {
+    ctx.rotate(ang);
+    ctx.fillStyle = 'rgba(12,12,20,0.85)';
+    ctx.beginPath(); ctx.ellipse(0, 0, o.r, o.r * 0.7, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(120,150,255,0.25)';
+    ctx.beginPath(); ctx.ellipse(-4, -3, o.r * 0.4, o.r * 0.28, 0, 0, 7); ctx.fill();
+  } else if (o.type === 'mud') {
+    ctx.fillStyle = '#5a3b1e';
+    ctx.beginPath(); ctx.ellipse(0, 0, o.r, o.r * 0.75, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#6f4a26';
+    ctx.beginPath(); ctx.arc(-6, 2, 6, 0, 7); ctx.arc(7, -3, 5, 0, 7); ctx.fill();
+  } else if (o.type === 'cone') {
+    ctx.fillStyle = '#ff7a1a';
+    ctx.beginPath(); ctx.moveTo(0, -o.r); ctx.lineTo(o.r * 0.6, o.r * 0.6); ctx.lineTo(-o.r * 0.6, o.r * 0.6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.fillRect(-o.r * 0.45, -2, o.r * 0.9, 4);
+  } else if (o.type === 'barrier') {
+    ctx.rotate(ang);
+    const len = o.r * 2.3, th = 9;
+    for (let s = -len / 2; s < len / 2; s += 9) {
+      ctx.fillStyle = (Math.floor((s + len / 2) / 9) % 2) ? '#e23b3b' : '#f4f4f4';
+      ctx.fillRect(-th / 2, s, th, 9);
+    }
+  } else if (o.type === 'ice') {
+    ctx.fillStyle = 'rgba(150,220,255,0.5)';
+    ctx.beginPath(); ctx.ellipse(0, 0, o.r, o.r * 0.78, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-o.r * 0.5, -3); ctx.lineTo(o.r * 0.4, 4);
+    ctx.moveTo(-3, -o.r * 0.5); ctx.lineTo(4, o.r * 0.45); ctx.stroke();
+  } else if (o.type === 'wormhole') {
+    for (let ri = 3; ri >= 1; ri--) {
+      ctx.strokeStyle = 'rgba(' + (120 + ri * 25) + ',60,225,' + (0.35 + ri * 0.15) + ')';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0, 0, o.r * ri / 3 + Math.sin(t * 0.12 + ri) * 2, 0, 7); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(50,8,80,0.85)'; ctx.beginPath(); ctx.arc(0, 0, o.r * 0.3, 0, 7); ctx.fill();
+  } else { // boost
+    ctx.rotate(ang);
+    ctx.fillStyle = '#25e06a'; ctx.globalAlpha = 0.9;
+    for (let k = 0; k < 2; k++) {
+      ctx.beginPath();
+      ctx.moveTo(-o.r * 0.5 + k * 11, -o.r * 0.7);
+      ctx.lineTo(-o.r * 0.5 + k * 11 + 11, 0);
+      ctx.lineTo(-o.r * 0.5 + k * 11, o.r * 0.7);
+      ctx.lineTo(-o.r * 0.5 + k * 11 + 4, 0);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+function drawCar(c) {
   ctx.save();
-  ctx.lineWidth = 1;
-  switch (b.hat) {
+  ctx.translate(c.px, c.py);
+  ctx.rotate(Math.atan2(c.ty, c.tx) + c.spin);
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; roundRect(-CAR_L / 2 + 1, -CAR_W / 2 + 2, CAR_L, CAR_W, 3); ctx.fill();
+  // body
+  ctx.fillStyle = c.color; roundRect(-CAR_L / 2, -CAR_W / 2, CAR_L, CAR_W, 3); ctx.fill();
+  // windshield + nose
+  ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fillRect(CAR_L * 0.12, -CAR_W / 2 + 2, 5, CAR_W - 4);
+  ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(CAR_L / 2 - 3, -CAR_W / 2 + 2, 3, CAR_W - 4);
+  // wheels
+  ctx.fillStyle = '#12151b';
+  ctx.fillRect(-CAR_L / 2 + 2, -CAR_W / 2 - 2, 5, 2); ctx.fillRect(-CAR_L / 2 + 2, CAR_W / 2, 5, 2);
+  ctx.fillRect(CAR_L / 2 - 7, -CAR_W / 2 - 2, 5, 2); ctx.fillRect(CAR_L / 2 - 7, CAR_W / 2, 5, 2);
+  // boost flame
+  if (c.boostT > 0) {
+    ctx.fillStyle = 'rgba(255,180,40,0.9)';
+    ctx.beginPath(); ctx.moveTo(-CAR_L / 2, -3); ctx.lineTo(-CAR_L / 2 - rand(6, 12), 0); ctx.lineTo(-CAR_L / 2, 3); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+  // hat + label upright above car
+  drawHat(c.px, c.py - CAR_W / 2 - 6, c.hat, c.hatColor);
+  const label = c.name.slice(0, 10);
+  ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+  ctx.strokeText(label, c.px, c.py - CAR_W / 2 - 26);
+  ctx.fillStyle = c.color; ctx.fillText(label, c.px, c.py - CAR_W / 2 - 26);
+}
+function drawHat(x, topY, hat, hatColor) {
+  ctx.save(); ctx.lineWidth = 1;
+  switch (hat) {
     case 'party':
-      ctx.fillStyle = b.hatColor;
+      ctx.fillStyle = hatColor;
       ctx.beginPath(); ctx.moveTo(x, topY - 18); ctx.lineTo(x - 9, topY + 1); ctx.lineTo(x + 9, topY + 1); ctx.closePath(); ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.moveTo(x - 5, topY - 6); ctx.lineTo(x + 5, topY - 6); ctx.stroke();
       ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, topY - 18, 2.6, 0, 7); ctx.fill();
       break;
     case 'top':
-      ctx.fillStyle = '#1a1a22';
-      ctx.fillRect(x - 7, topY - 16, 14, 14);
-      ctx.fillRect(x - 11, topY - 3, 22, 3);
-      ctx.fillStyle = b.hatColor; ctx.fillRect(x - 7, topY - 6, 14, 3);
+      ctx.fillStyle = '#1a1a22'; ctx.fillRect(x - 7, topY - 16, 14, 14); ctx.fillRect(x - 11, topY - 3, 22, 3);
+      ctx.fillStyle = hatColor; ctx.fillRect(x - 7, topY - 6, 14, 3);
       break;
     case 'crown':
       ctx.fillStyle = '#ffcf3f';
@@ -372,30 +477,24 @@ function drawHat(b) {
       ctx.fillStyle = '#ff5b7f'; ctx.beginPath(); ctx.arc(x, topY - 3, 1.7, 0, 7); ctx.fill();
       break;
     case 'beanie':
-      ctx.fillStyle = b.hatColor;
-      ctx.beginPath(); ctx.arc(x, topY, 9, Math.PI, 0); ctx.fill();
-      ctx.fillRect(x - 9, topY - 1, 18, 3);
+      ctx.fillStyle = hatColor; ctx.beginPath(); ctx.arc(x, topY, 9, Math.PI, 0); ctx.fill(); ctx.fillRect(x - 9, topY - 1, 18, 3);
       ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, topY - 9, 2.4, 0, 7); ctx.fill();
       break;
     case 'cap':
-      ctx.fillStyle = b.hatColor;
-      ctx.beginPath(); ctx.arc(x, topY, 8, Math.PI, 0); ctx.fill();
-      ctx.fillRect(x - 1, topY - 1, 14, 3);
+      ctx.fillStyle = hatColor; ctx.beginPath(); ctx.arc(x, topY, 8, Math.PI, 0); ctx.fill(); ctx.fillRect(x - 1, topY - 1, 14, 3);
       break;
     case 'cowboy':
-      ctx.fillStyle = b.hatColor;
+      ctx.fillStyle = hatColor;
       ctx.beginPath(); ctx.ellipse(x, topY, 13, 3.5, 0, 0, 7); ctx.fill();
       ctx.beginPath(); ctx.moveTo(x - 6, topY); ctx.quadraticCurveTo(x - 5, topY - 12, x, topY - 12);
       ctx.quadraticCurveTo(x + 5, topY - 12, x + 6, topY); ctx.closePath(); ctx.fill();
       break;
     case 'halo':
       ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 3; ctx.shadowColor = '#ffe27a'; ctx.shadowBlur = 8;
-      ctx.beginPath(); ctx.ellipse(x, topY - 8, 8, 3, 0, 0, 7); ctx.stroke();
-      ctx.shadowBlur = 0;
+      ctx.beginPath(); ctx.ellipse(x, topY - 8, 8, 3, 0, 0, 7); ctx.stroke(); ctx.shadowBlur = 0;
       break;
     case 'propeller':
-      ctx.fillStyle = b.hatColor;
-      ctx.beginPath(); ctx.arc(x, topY, 7, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = hatColor; ctx.beginPath(); ctx.arc(x, topY, 7, Math.PI, 0); ctx.fill();
       ctx.fillStyle = '#999'; ctx.fillRect(x - 0.7, topY - 11, 1.4, 5);
       const pa = t * 0.3;
       ctx.strokeStyle = '#ff5b7f'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
@@ -407,129 +506,62 @@ function drawHat(b) {
   }
   ctx.restore();
 }
+
 function draw() {
-  ctx.clearRect(0, 0, VW, VH);
+  // grass
+  ctx.fillStyle = '#1c4a2a'; ctx.fillRect(0, 0, VW, VH);
+  ctx.fillStyle = 'rgba(0,0,0,0.06)';
+  for (let gx = 0; gx < VW; gx += 40) ctx.fillRect(gx, 0, 20, VH);
+
   ctx.save();
-  // photo-finish zoom, centered on the drama zone
-  if (zoom !== 1) {
-    const fx = VW / 2, fy = VH * 0.42;
-    ctx.translate(fx, fy); ctx.scale(zoom, zoom); ctx.translate(-fx, -fy);
-  }
-  ctx.translate(0, -cameraY);
+  ctx.translate(VW / 2, VH / 2);
+  ctx.scale(zoom, zoom);
+  ctx.translate(-camX, -camY);
 
-  for (let y = 200; y < WORLD_H; y += 200) {
-    if (y - cameraY < -20 || y - cameraY > VH + 20) continue;
-    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(WORLD_W, y); ctx.stroke();
-  }
-
-  obstacles.forEach(o => {
-    if (o.type === 'peg') {
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2); ctx.fill();
-    } else if (o.type === 'bumper') {
-      ctx.fillStyle = '#ff6f91'; ctx.shadowColor = '#ff6f91'; ctx.shadowBlur = 12;
-      ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      ctx.beginPath(); ctx.arc(o.x, o.y, o.r * 0.5, 0, Math.PI * 2); ctx.fill();
-    } else if (o.type === 'wall') {
-      ctx.strokeStyle = '#5cc8ff'; ctx.lineWidth = 6; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(o.ax1, o.ay1); ctx.lineTo(o.ax2, o.ay2); ctx.stroke(); ctx.lineWidth = 1;
-    } else if (o.type === 'spinner') {
-      const a = o.phase + simTime * o.speed;
-      ctx.strokeStyle = '#b78bff'; ctx.lineWidth = 8; ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(o.x + Math.cos(a) * o.len, o.y + Math.sin(a) * o.len);
-      ctx.lineTo(o.x - Math.cos(a) * o.len, o.y - Math.sin(a) * o.len);
-      ctx.stroke();
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(o.x, o.y, 5, 0, Math.PI*2); ctx.fill(); ctx.lineWidth = 1;
-    } else if (o.type === 'mover') {
-      ctx.fillStyle = '#7bd88f';
-      ctx.beginPath(); ctx.arc(o._x, o.y, 7, 0, Math.PI * 2); ctx.fill();
-    } else if (o.type === 'portal') {
-      // exit (up) in orange, entrance (down) in cyan, dashed link
-      ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(o.tx, o.ty); ctx.stroke();
-      ctx.setLineDash([]); ctx.lineWidth = 1;
-      const pulse = 3 + Math.sin(t * 0.1) * 2;
-      // entrance
-      ctx.strokeStyle = '#39d0ff'; ctx.lineWidth = 4; ctx.shadowColor = '#39d0ff'; ctx.shadowBlur = 16;
-      ctx.beginPath(); ctx.arc(o.x, o.y, o.r + pulse, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(o.x, o.y, o.r - 6, 0, Math.PI * 2); ctx.stroke();
-      // exit: orange + ▲ if it sends you up, green + ▼ if it's a downward shortcut
-      const up = o.dir === 'up';
-      const exitCol = up ? '#ff9f45' : '#7bd88f';
-      ctx.strokeStyle = exitCol; ctx.shadowColor = exitCol;
-      ctx.beginPath(); ctx.arc(o.tx, o.ty, o.r + pulse, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(o.tx, o.ty, o.r - 6, 0, Math.PI * 2); ctx.stroke();
-      ctx.shadowBlur = 0; ctx.lineWidth = 1;
-      ctx.fillStyle = exitCol; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(up ? '▲ warp' : '▼ warp', o.x, o.y + 3);
-    } else if (o.type === 'pinwheel') {
-      const base = o.phase + simTime * o.speed;
-      ctx.strokeStyle = '#ff7ce0'; ctx.lineWidth = 8; ctx.lineCap = 'round';
-      ctx.shadowColor = '#ff7ce0'; ctx.shadowBlur = 8;
-      for (let a = 0; a < o.arms; a++) {
-        const ang = base + a * (Math.PI * 2 / o.arms);
-        ctx.beginPath(); ctx.moveTo(o.x, o.y);
-        ctx.lineTo(o.x + Math.cos(ang) * o.len, o.y + Math.sin(ang) * o.len); ctx.stroke();
-      }
-      ctx.shadowBlur = 0; ctx.lineWidth = 1;
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(o.x, o.y, 6, 0, Math.PI*2); ctx.fill();
-    } else if (o.type === 'tramp') {
-      ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 6; ctx.lineCap = 'round';
-      ctx.shadowColor = '#ffe27a'; ctx.shadowBlur = 10;
-      ctx.beginPath(); ctx.moveTo(o.x - o.w, o.y); ctx.lineTo(o.x + o.w, o.y); ctx.stroke();
-      ctx.shadowBlur = 0; ctx.lineWidth = 1;
-    } else if (o.type === 'gate') {
-      ctx.fillStyle = '#5cc8ff'; ctx.shadowColor = '#5cc8ff'; ctx.shadowBlur = 6;
-      roundRect(o._x - o.w / 2, o.y - 7, o.w, 14, 6); ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-  });
-
-  // finish line (checkered)
-  const sq = 20, rows = 2;
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < WORLD_W / sq; c++) {
-      ctx.fillStyle = ((r + c) % 2) ? '#f2f6ff' : '#12203a';
-      ctx.fillRect(c * sq, FINISH_Y + r * sq, sq, sq);
-    }
-  }
-  ctx.fillStyle = '#ffe27a'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('🏁 FINISH LINE', WORLD_W / 2, FINISH_Y - 14);
-
-  // balls
-  balls.forEach(b => {
-    ctx.fillStyle = b.color;
-    ctx.shadowColor = b.color; ctx.shadowBlur = 14;
-    ctx.beginPath(); ctx.arc(b.x, b.y, BALL_R, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowBlur = 0;
-    drawHat(b);
-    // readable label: dark outline + bright fill in the ball's own color
-    const label = b.name.slice(0, 10);
-    ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-    ctx.strokeText(label, b.x, b.y - BALL_R - 24);
-    ctx.fillStyle = b.color;
-    ctx.fillText(label, b.x, b.y - BALL_R - 24);
-  });
+  drawTrack();
+  obstacles.forEach(drawObstacle);
+  cars.forEach(drawCar);
 
   ctx.restore();
+
+  // HUD: leader's lap
+  if (cars.length) {
+    const lead = leadCar();
+    const lap = Math.max(1, Math.min(LAPS, Math.floor(Math.max(0, lead.dist) / total) + 1));
+    ctx.fillStyle = 'rgba(9,16,30,0.6)'; roundRect(12, 12, 118, 30, 8); ctx.fill();
+    ctx.fillStyle = '#eaf1ff'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('LAP ' + lap + ' / ' + LAPS, 24, 28);
+  }
   drawConfetti();
+  updatePositions();
+}
+
+function updatePositions() {
+  if (!cars.length) { positionsEl.innerHTML = ''; return; }
+  const ranked = cars.slice().sort((a, b) => b.dist - a.dist);
+  let html = '';
+  ranked.forEach((c, idx) => {
+    const isLast = idx === ranked.length - 1;
+    const lap = Math.max(1, Math.min(LAPS, Math.floor(Math.max(0, c.dist) / total) + 1));
+    const status = c.finished ? '🏁 done' : ('lap ' + lap + '/' + LAPS);
+    const cls = (isLast ? ' last' : '') + (c.finished ? ' done' : '');
+    html += '<li class="' + cls + '">' +
+      '<span class="rank">' + (idx + 1) + '</span>' +
+      '<span class="dot" style="background:' + c.color + '"></span>' +
+      '<span class="nm">' + c.name.replace(/</g, '&lt;') + '</span>' +
+      '<span class="st">' + status + '</span></li>';
+  });
+  positionsEl.innerHTML = html;
 }
 
 // ---------- confetti ----------
-const confettiColors = ['#4ee1c1','#3aa0ff','#ff8fb3','#ffd166','#b78bff','#7bd88f','#ff9f68','#ffffff'];
 function spawnConfetti(n) {
-  for (let i = 0; i < n; i++) {
-    confetti.push({
-      x: rand(0, VW), y: rand(-VH * 0.3, 0),
-      vx: rand(-1.4, 1.4), vy: rand(1.5, 4),
-      size: rand(5, 11), color: pick(confettiColors),
-      rot: rand(0, Math.PI * 2), vr: rand(-0.2, 0.2), life: rand(120, 220)
-    });
-  }
+  for (let i = 0; i < n; i++) confetti.push({
+    x: rand(0, VW), y: rand(-VH * 0.3, 0),
+    vx: rand(-1.4, 1.4), vy: rand(1.5, 4),
+    size: rand(5, 11), color: pick(carColors.concat(['#ffffff'])),
+    rot: rand(0, Math.PI * 2), vr: rand(-0.2, 0.2), life: rand(120, 220)
+  });
 }
 function updateConfetti() {
   for (let i = confetti.length - 1; i >= 0; i--) {
@@ -540,186 +572,59 @@ function updateConfetti() {
 }
 function drawConfetti() {
   confetti.forEach(p => {
-    ctx.save();
-    ctx.translate(p.x, p.y); ctx.rotate(p.rot);
-    ctx.fillStyle = p.color;
-    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+    ctx.fillStyle = p.color; ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
     ctx.restore();
   });
 }
 
-// ---------- physics ----------
-function bounceCircle(b, px, py, pr, kick) {
-  const dx = b.x - px, dy = b.y - py;
-  const dist = Math.hypot(dx, dy) || 0.001;
-  const min = pr + BALL_R;
-  if (dist < min) {
-    const ang = Math.atan2(dy, dx);
-    b.x = px + Math.cos(ang) * min;
-    b.y = py + Math.sin(ang) * min;
-    const nudge = (Math.random() - 0.5) * 2.0;
-    b.vx = Math.cos(ang) * kick + nudge;
-    b.vy = Math.max(Math.sin(ang) * kick, -kick) + 0.4;
-    return true;
-  }
-  return false;
-}
-function bounceSegment(b, x1, y1, x2, y2) {
-  const dx = x2 - x1, dy = y2 - y1;
-  const len2 = dx*dx + dy*dy;
-  let tt = ((b.x - x1) * dx + (b.y - y1) * dy) / len2;
-  tt = Math.max(0, Math.min(1, tt));
-  const cx = x1 + tt * dx, cy = y1 + tt * dy;
-  const ddx = b.x - cx, ddy = b.y - cy;
-  const dist = Math.hypot(ddx, ddy) || 0.001;
-  if (dist < BALL_R + 3) {
-    const nx = ddx / dist, ny = ddy / dist;
-    b.x = cx + nx * (BALL_R + 3); b.y = cy + ny * (BALL_R + 3);
-    const dot = b.vx * nx + b.vy * ny;
-    b.vx = (b.vx - 2 * dot * nx) * 0.7;
-    b.vy = (b.vy - 2 * dot * ny) * 0.7;
-    // slide downhill along the bar so a ball can never wedge and rest on it
-    let tanx = dx, tany = dy;
-    if (tany < 0) { tanx = -tanx; tany = -tany; }
-    const tl = Math.hypot(tanx, tany) || 1;
-    b.vx += (tanx / tl) * 0.9;
-    b.vy += (tany / tl) * 0.9;
-    return true;
-  }
-  return false;
-}
-
-function ballBallCollisions() {
-  for (let i = 0; i < balls.length; i++) {
-    for (let j = i + 1; j < balls.length; j++) {
-      const a = balls[i], b = balls[j];
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const dist = Math.hypot(dx, dy) || 0.001;
-      const min = BALL_R * 2;
-      if (dist < min) {
-        const nx = dx / dist, ny = dy / dist;
-        const overlap = (min - dist) / 2;
-        a.x -= nx * overlap; a.y -= ny * overlap;
-        b.x += nx * overlap; b.y += ny * overlap;
-        const avn = a.vx * nx + a.vy * ny;
-        const bvn = b.vx * nx + b.vy * ny;
-        const diff = bvn - avn;
-        a.vx += nx * diff; a.vy += ny * diff;
-        b.vx -= nx * diff; b.vy -= ny * diff;
-      }
-    }
-  }
-}
-
+// ---------- simulation ----------
 function step() {
   t++;
-  // photo finish: when 2 or fewer balls are still racing, ease into slow-mo + zoom
-  const stillRacing = balls.filter(b => !b.finished).length;
-  const photo = stillRacing > 0 && stillRacing <= 2 && balls.length >= 2;
-  slowmo += ((photo ? 0.4 : 1) - slowmo) * 0.08;
-  zoom   += ((photo ? 1.45 : 1) - zoom) * 0.06;
+  const stillRacing = cars.filter(c => !c.finished).length;
+  const photo = stillRacing > 0 && stillRacing <= 2 && cars.length >= 2 && finishOrder.length > 0;
+  slowmo += ((photo ? 0.5 : 1) - slowmo) * 0.06;
+  zoom   += ((photo ? 1.25 : 0.9) - zoom) * 0.05;
   simTime += slowmo;
   updateConfetti();
-  animateObstacles();
 
-  balls.forEach(b => {
-    if (b.finished) return;
-    if (b.warpCd > 0) b.warpCd--;
-    b.vy += 0.16 * slowmo;
-    b.vx *= 0.99;
-    b.vy = Math.min(b.vy, 4.6);
-    b.x += b.vx * slowmo;
-    b.y += b.vy * slowmo;
+  cars.forEach(c => {
+    if (c.finished) { c.spin *= 0.9; return; }
+    if (c.boostT > 0) c.boostT--;
+    if (c.slowT > 0) c.slowT--;
+    if (c.spin > 0.001 || c.spin < -0.001) c.spin *= 0.86; else c.spin = 0;
 
-    let hit = false;
-    obstacles.forEach(o => {
-      if (o.type === 'peg') hit = bounceCircle(b, o.x, o.y, o.r, 1.7) || hit;
-      else if (o.type === 'bumper') hit = bounceCircle(b, o.x, o.y, o.r, 3.6) || hit;
-      else if (o.type === 'mover') hit = bounceCircle(b, o._x, o.y, 7, 2.0) || hit;
-      else if (o.type === 'wall') hit = bounceSegment(b, o.ax1, o.ay1, o.ax2, o.ay2) || hit;
-      else if (o.type === 'spinner') {
-        const a = o.phase + simTime * o.speed;
-        hit = bounceSegment(b, o.x + Math.cos(a)*o.len, o.y + Math.sin(a)*o.len,
-                         o.x - Math.cos(a)*o.len, o.y - Math.sin(a)*o.len) || hit;
-      }
-      else if (o.type === 'pinwheel') {
-        const base = o.phase + simTime * o.speed;
-        for (let a = 0; a < o.arms; a++) {
-          const ang = base + a * (Math.PI * 2 / o.arms);
-          hit = bounceSegment(b, o.x, o.y, o.x + Math.cos(ang) * o.len, o.y + Math.sin(ang) * o.len) || hit;
-        }
-      }
-      else if (o.type === 'tramp') {
-        // bounce hard upward when hit from above
-        if (Math.abs(b.x - o.x) < o.w && b.y + BALL_R > o.y && b.y < o.y + 12 && b.vy > 0) {
-          b.y = o.y - BALL_R;
-          b.vy = -Math.max(3.2, b.vy * 0.9);
-          hit = true;
-        }
-      }
-      else if (o.type === 'gate') {
-        hit = bounceSegment(b, o._x - o.w / 2, o.y, o._x + o.w / 2, o.y) || hit;
-      }
-      else if (o.type === 'portal') {
-        const d = Math.hypot(b.x - o.x, b.y - o.y);
-        if (d < o.r && b.warpCd === 0) {
-          b.x = o.tx + (Math.random() - 0.5) * 10;
-          b.y = o.ty;
-          b.vx = (Math.random() - 0.5) * 1.5;
-          b.vy = 0.5;
-          b.warpCd = 90;   // avoid immediate re-warp
-          playWhoosh();
-        }
-      }
-    });
-    if (hit) playPing();
+    let mult = 1 + 0.16 * Math.sin(c.phase + simTime * c.freq) + (Math.random() - 0.5) * 0.06;
+    if (c.boostT > 0) mult *= 1.7;
+    if (c.slowT > 0) mult *= 0.45;
+    const target = c.base * mult;
+    c.speed += (target - c.speed) * 0.1;
+    c.dist += c.speed * slowmo;
 
-    if (b.x < BALL_R) { b.x = BALL_R; b.vx = Math.abs(b.vx); }
-    if (b.x > WORLD_W - BALL_R) { b.x = WORLD_W - BALL_R; b.vx = -Math.abs(b.vx); }
+    checkObstacles(c);
+    positionCar(c);
 
-    // anti-stuck: if no meaningful downward progress for ~3s, warp upward and shove free
-    // (paused during the slow-mo photo finish so it doesn't yank a ball mid-drama)
-    if (b.y > b.bestY + 4) { b.bestY = b.y; b.stuckFrames = 0; }
-    else if (slowmo > 0.9) { b.stuckFrames++; }
-    if (b.stuckFrames > 180) {
-      b.y = Math.max(120, b.y - 160);
-      b.x = Math.min(WORLD_W - BALL_R, Math.max(BALL_R, b.x + rand(-60, 60)));
-      b.vx = rand(-2.5, 2.5);
-      b.vy = 1;
-      b.stuckFrames = 0;
-      b.bestY = b.y;
-      b.warpCd = 30;
-    }
-
-    if (b.y >= FINISH_Y && !b.finished) {
-      b.finished = true;
-      finishOrder.push(b.name);
+    if (c.dist >= total * LAPS && !c.finished) {
+      c.finished = true;
+      finishOrder.push(c.name);
       updateOrder();
-      tone(340, 0.14, 'sine', 0.1);   // soft blip as each ball crosses
+      tone(340, 0.14, 'sine', 0.1);
     }
   });
 
-  ballBallCollisions();
-
-  // camera follows the LEAD ball (furthest down that hasn't finished; else furthest overall)
-  const running = balls.filter(b => !b.finished);
-  const lead = (running.length ? running : balls).reduce((m, b) => b.y > m.y ? b : m, (running.length ? running : balls)[0]);
-  if (lead) {
-    const target = lead.y - VH * 0.4;
-    cameraY += (target - cameraY) * 0.12;
-    cameraY = Math.max(0, Math.min(cameraY, WORLD_H - VH));
-  }
+  // camera follows the leader
+  const lead = leadCar();
+  camX += (lead.px - camX) * 0.1;
+  camY += (lead.py - camY) * 0.1;
 
   draw();
 
-  if (balls.every(b => b.finished)) { finish(); return; }
+  if (cars.every(c => c.finished)) { finish(); return; }
   requestAnimationFrame(step);
 }
 
 function updateOrder() {
-  if (finishOrder.length) {
-    orderEl.textContent = 'Crossed: ' + finishOrder.join(' → ');
-  }
+  if (finishOrder.length) orderEl.textContent = 'Finished: ' + finishOrder.join(' → ');
 }
 
 function finish() {
@@ -728,9 +633,7 @@ function finish() {
   const loser = finishOrder[finishOrder.length - 1];
   winnerEl.textContent = `⭐ ${loser} leads the next huddle!`;
   bannerNameEl.textContent = loser;
-  bannerEl.classList.remove('show');   // restart the pop animation
-  void bannerEl.offsetWidth;
-  bannerEl.classList.add('show');
+  bannerEl.classList.remove('show'); void bannerEl.offsetWidth; bannerEl.classList.add('show');
   spawnConfetti(150);
   setTimeout(() => spawnConfetti(90), 250);
   setTimeout(() => spawnConfetti(90), 550);
@@ -740,16 +643,14 @@ function finish() {
 
 function start() {
   if (animating || counting) return;
-  buildBoard();
-  spawnBalls();
+  buildTrack();
+  spawnCars();
   finishOrder = [];
-  winnerEl.textContent = '';
-  orderEl.textContent = '';
-  bannerEl.classList.remove('show');
-  confetti = [];
-  t = 0; simTime = 0; cameraY = 0; slowmo = 1; zoom = 1;
+  winnerEl.textContent = ''; orderEl.textContent = '';
+  bannerEl.classList.remove('show'); confetti = [];
+  t = 0; simTime = 0; slowmo = 1; zoom = 0.9;
   dropBtn.disabled = true;
-  if (soundOn) audio();   // unlock audio on the user's click
+  if (soundOn) audio();
   runCountdown();
 }
 
@@ -778,34 +679,29 @@ function runCountdown() {
 
 dropBtn.addEventListener('click', start);
 resetBtn.addEventListener('click', () => {
-  animating = false; counting = false; balls = []; finishOrder = [];
-  winnerEl.textContent = ''; orderEl.textContent = '';
+  animating = false; counting = false;
+  finishOrder = []; winnerEl.textContent = ''; orderEl.textContent = '';
   bannerEl.classList.remove('show'); countdownEl.classList.remove('show', 'flash'); confetti = [];
-  cameraY = 0; t = 0; simTime = 0; slowmo = 1; zoom = 1;
-  dropBtn.disabled = false;
-  buildBoard(); spawnBalls();
-  balls.forEach(b => b.vy = 0); draw();
+  t = 0; simTime = 0; slowmo = 1; zoom = 0.9; dropBtn.disabled = false;
+  buildTrack(); spawnCars(); draw();
 });
-namesEl.addEventListener('input', () => { if (!animating) { buildBoard(); spawnBalls(); draw(); } });
+namesEl.addEventListener('input', () => { if (!animating && !counting) { spawnCars(); draw(); } });
 
-// idle so spinners/movers animate before start
+// idle loop: gentle motion before/after a race
 function idle() {
   if (!animating) {
-    t++;
+    t++; simTime += slowmo;
     slowmo += (1 - slowmo) * 0.1;
-    zoom += (1 - zoom) * 0.08;
-    if (Math.abs(zoom - 1) < 0.005) zoom = 1;
-    simTime += slowmo;
-    animateObstacles();
-    cameraY = 0;
+    zoom += (0.9 - zoom) * 0.06;
+    cars.forEach(positionCar);
     updateConfetti();
     draw();
   }
   requestAnimationFrame(idle);
 }
 
-buildBoard();
-spawnBalls();
+buildTrack();
+spawnCars();
 draw();
 idle();
 </script>
