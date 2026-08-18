@@ -160,6 +160,7 @@ let animating = false, counting = false;
 let t = 0, simTime = 0, slowmo = 1, zoom = 0.9;
 let camX = CX, camY = CY;
 let confetti = [];
+let police = null;   // random police + spike-strip event
 
 function getNames() {
   return namesEl.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 8);
@@ -213,6 +214,17 @@ function playWarp() {
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4);
   o.connect(g).connect(ac.destination);
   o.start(t0); o.stop(t0 + 0.42);
+}
+function playSiren() {
+  if (!soundOn) return;
+  tone(720, 0.18, 'sawtooth', 0.09, 0);
+  tone(540, 0.18, 'sawtooth', 0.09, 0.2);
+  tone(720, 0.18, 'sawtooth', 0.09, 0.4);
+}
+function playBlowout() {
+  if (!soundOn) return;
+  tone(90, 0.28, 'sawtooth', 0.2, 0);
+  tone(200, 0.12, 'square', 0.14, 0);
 }
 function playBeep(go) { tone(go ? 880 : 500, go ? 0.35 : 0.18, 'square', 0.16); }
 function playHorn() {
@@ -297,6 +309,7 @@ function spawnCars() {
     speed: 0,
     phase: rand(0, 6), freq: rand(0.012, 0.024),
     slowT: 0, boostT: 0, spin: 0, obsCd: 0,
+    flatT: 0, spiked: false, spikeCd: 0,
     finished: false,
     px: 0, py: 0, tx: 1, ty: 0
   }));
@@ -337,6 +350,46 @@ function checkObstacles(c) {
     }
   }
 }
+
+// ---------- police + spike strip event ----------
+function resetPolice() {
+  // ~75% of races get a police visit, at a random moment
+  const willVisit = Math.random() < 0.75;
+  police = {
+    state: 'idle',
+    triggerT: willVisit ? Math.floor(rand(320, 900)) : Infinity,
+    d: 0, ang: 0, deployMax: 300, timer: 0,
+    sx: 0, sy: 0, ex: 0, ey: 0, cx: 0, cy: 0
+  };
+}
+function setupPolice() {
+  const lead = leadCar();
+  const ld = ((lead.dist % total) + total) % total;
+  police.d = (ld + rand(340, 640)) % total;
+  const s = sampleAt(police.d);
+  police.ang = Math.atan2(s.ty, s.tx);
+  let ox = s.x - CX, oy = s.y - CY; const ol = Math.hypot(ox, oy) || 1; ox /= ol; oy /= ol;
+  police.sx = s.x + ox * (ROAD_W / 2 + 26); police.sy = s.y + oy * (ROAD_W / 2 + 26);
+  police.ex = s.x + ox * 560; police.ey = s.y + oy * 560;
+  police.cx = police.ex; police.cy = police.ey;
+  police.state = 'arrive'; police.timer = 0;
+  playSiren();
+}
+function updatePolice() {
+  if (!police) return;
+  if (police.state === 'idle') { if (t >= police.triggerT) setupPolice(); return; }
+  if (police.state === 'arrive') {
+    police.cx += (police.sx - police.cx) * 0.08; police.cy += (police.sy - police.cy) * 0.08;
+    if (Math.hypot(police.sx - police.cx, police.sy - police.cy) < 6) { police.state = 'deploy'; police.timer = 0; }
+  } else if (police.state === 'deploy') {
+    police.timer++;
+    if (police.timer > police.deployMax) { police.state = 'leave'; }
+  } else if (police.state === 'leave') {
+    police.cx += (police.ex - police.cx) * 0.06; police.cy += (police.ey - police.cy) * 0.06;
+    if (Math.hypot(police.ex - police.cx, police.ey - police.cy) < 8) police.state = 'done';
+  }
+}
+function spikeActive() { return police && police.state === 'deploy'; }
 
 // ---------- drawing ----------
 function roundRect(x, y, w, h, r) {
@@ -507,6 +560,38 @@ function drawHat(x, topY, hat, hatColor) {
   ctx.restore();
 }
 
+function drawSpikeStrip() {
+  if (!spikeActive()) return;
+  const s = sampleAt(police.d), ang = Math.atan2(s.ty, s.tx), half = ROAD_W / 2;
+  ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(ang);
+  ctx.fillStyle = '#181a20'; ctx.fillRect(-7, -half, 14, ROAD_W);   // base band across road
+  ctx.fillStyle = '#cfd4dc';
+  for (let yy = -half + 4; yy < half - 2; yy += 8) {
+    ctx.beginPath(); ctx.moveTo(-7, yy); ctx.lineTo(0, yy + 2); ctx.lineTo(-7, yy + 6); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(7, yy); ctx.lineTo(0, yy + 2); ctx.lineTo(7, yy + 6); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawPolice() {
+  if (!police || police.state === 'idle' || police.state === 'done') return;
+  const flash = Math.floor(t / 7) % 2;
+  // flashing glow
+  ctx.save(); ctx.globalAlpha = 0.45;
+  ctx.fillStyle = flash ? '#ff2a2a' : '#2a6bff';
+  ctx.beginPath(); ctx.arc(police.cx, police.cy, 24, 0, 7); ctx.fill();
+  ctx.restore();
+  // cruiser
+  ctx.save(); ctx.translate(police.cx, police.cy); ctx.rotate(police.ang);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; roundRect(-17, -9, 34, 19, 4); ctx.fill();
+  ctx.fillStyle = '#12141c'; roundRect(-17, -10, 34, 19, 4); ctx.fill();
+  ctx.fillStyle = '#eef1f6'; ctx.fillRect(-7, -10, 13, 19);          // white door
+  ctx.fillStyle = '#12141c'; ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('POLICE', -0.5, 0);
+  ctx.fillStyle = 'rgba(150,200,255,0.6)'; ctx.fillRect(9, -8, 5, 16); // windshield
+  ctx.fillStyle = flash ? '#ff2a2a' : '#2a6bff'; ctx.fillRect(-4, -6, 8, 5); // lightbar
+  ctx.fillStyle = flash ? '#2a6bff' : '#ff2a2a'; ctx.fillRect(-4, 1, 8, 5);
+  ctx.restore();
+}
 function draw() {
   // grass
   ctx.fillStyle = '#1c4a2a'; ctx.fillRect(0, 0, VW, VH);
@@ -520,7 +605,9 @@ function draw() {
 
   drawTrack();
   obstacles.forEach(drawObstacle);
+  drawSpikeStrip();
   cars.forEach(drawCar);
+  drawPolice();
 
   ctx.restore();
 
@@ -587,21 +674,33 @@ function step() {
   zoom   += ((photo ? 1.25 : 0.9) - zoom) * 0.05;
   simTime += slowmo;
   updateConfetti();
+  updatePolice();
 
   cars.forEach(c => {
     if (c.finished) { c.spin *= 0.9; return; }
     if (c.boostT > 0) c.boostT--;
     if (c.slowT > 0) c.slowT--;
+    if (c.spikeCd > 0) c.spikeCd--;
     if (c.spin > 0.001 || c.spin < -0.001) c.spin *= 0.86; else c.spin = 0;
 
     let mult = 1 + 0.16 * Math.sin(c.phase + simTime * c.freq) + (Math.random() - 0.5) * 0.06;
     if (c.boostT > 0) mult *= 1.7;
     if (c.slowT > 0) mult *= 0.45;
+    if (c.flatT > 0) { c.flatT--; mult *= 0.6; }   // blown tire from the spike strip
     const target = c.base * mult;
     c.speed += (target - c.speed) * 0.1;
     c.dist += c.speed * slowmo;
 
     checkObstacles(c);
+    // spike strip: severe, full road width, blows a tire
+    if (spikeActive() && !c.spiked && c.spikeCd <= 0) {
+      let dd = Math.abs((((c.dist % total) + total) % total) - police.d); dd = Math.min(dd, total - dd);
+      if (dd < 16) {
+        c.flatT = 260; c.slowT = 130; c.speed *= 0.05;
+        c.spin = (Math.random() < 0.5 ? 1 : -1) * Math.PI * 4;
+        c.spiked = true; c.spikeCd = 60; playBlowout();
+      }
+    }
     positionCar(c);
 
     if (c.dist >= total * LAPS && !c.finished) {
@@ -645,6 +744,7 @@ function start() {
   if (animating || counting) return;
   buildTrack();
   spawnCars();
+  resetPolice();
   finishOrder = [];
   winnerEl.textContent = ''; orderEl.textContent = '';
   bannerEl.classList.remove('show'); confetti = [];
@@ -683,6 +783,7 @@ resetBtn.addEventListener('click', () => {
   finishOrder = []; winnerEl.textContent = ''; orderEl.textContent = '';
   bannerEl.classList.remove('show'); countdownEl.classList.remove('show', 'flash'); confetti = [];
   t = 0; simTime = 0; slowmo = 1; zoom = 0.9; dropBtn.disabled = false;
+  police = null;
   buildTrack(); spawnCars(); draw();
 });
 namesEl.addEventListener('input', () => { if (!animating && !counting) { spawnCars(); draw(); } });
